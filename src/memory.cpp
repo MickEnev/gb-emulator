@@ -9,7 +9,7 @@ uint8_t Memory::read(uint16_t address) const {
 }
 
 void Memory::write(uint16_t address, uint8_t value) {
-    if (address > _mem.size()) {
+    if (address >= _mem.size()) {
         std::cerr << "Memory write otu of bounds at: 0x" << std::hex << address << "\n";
     }
     if (address < 0x8000) {
