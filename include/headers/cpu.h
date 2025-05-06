@@ -12,7 +12,14 @@ class CPU {
         uint16_t getAF() const;
         void setAF(uint16_t val);
 
-        
+        uint16_t getBC() const;
+        void setBC(uint16_t val);
+
+        uint16_t getDE() const;
+        void setDE(uint16_t val);
+
+        uint16_t getHL() const;
+        void setHL(uint16_t val);
 
     private:
     // Registers
