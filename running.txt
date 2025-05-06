@@ -1,0 +1,1 @@
+run mingw32-make -f MakeFile to generate the .exe

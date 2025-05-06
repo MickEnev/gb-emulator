@@ -1,0 +1,15 @@
+UNAME_S := $(shell uname -s)
+
+ifeq ($(UNAME_S),Darwin)  # macOS
+	CXXFLAGS := -std=c++17 -I/opt/homebrew/include/SDL3
+	LDFLAGS := -L/opt/homebrew/lib -lSDL3 -lSDL3_image
+else  # Assume Windows or Linux
+	CXXFLAGS := -std=c++17 -Iinclude -Iinclude/SDL3 -Iinclude/headers
+	LDFLAGS := -Llib -lSDL3 -lSDL3_image -lmingw32
+endif
+
+SRC := $(wildcard src/*.cpp)
+OUT := Main
+
+all:
+	$(CXX) $(CXXFLAGS) -o $(OUT) $(SRC) $(LDFLAGS)
