@@ -39,6 +39,9 @@ class CPU {
         uint16_t _PC, _SP;
 
         void executeOpcode(uint16_t opcode);
+
+        uint8_t fetch8();
+        uint16_t fetch16();
         
 };
 
