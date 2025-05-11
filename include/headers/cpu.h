@@ -36,9 +36,14 @@ class CPU {
         // Registers
         uint8_t _A, _B, _C, _D, _E, _F, _H, _L;
 
-        uint16_t _PC, _SP;
+        // _F register contains flags: z n h c // zero subtraction half carry carry
+        // These live in the upper 4 bits of F the lower 4 bits do not get used
 
-        void executeOpcode(uint16_t opcode);
+        uint16_t _PC, _SP; // Program counter/ Pointer and Stack Pointer
+
+        bool _stopped = false;
+
+        void executeOpcode(uint8_t opcode);
 
         uint8_t fetch8();
         uint16_t fetch16();
