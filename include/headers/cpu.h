@@ -50,6 +50,18 @@ class CPU {
 
         void setINCFlags(uint8_t& r);
         void setDECFlags(uint8_t& r);
+
+        void setADDFlags(uint8_t& r);
+        void setADCFlags(uint8_t& r);
+
+        void setSUBFlags(uint8_t& r);
+        void setSBCFlags(uint8_t& r);
+
+        void setANDFlags(uint8_t& r);
+        void setXORFlags(uint8_t& r);
+
+        void setORFlags(uint8_t& r);
+        void setCPFlags(uint8_t& r);
         
 };
 

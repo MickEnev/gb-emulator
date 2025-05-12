@@ -87,6 +87,141 @@ void CPU::setDECFlags(uint8_t& r) {
     if ((r & 0x0F) == 0x0F) _F |= 0x20; // H if borrow from bit 4
 }
 
+void CPU::setADDFlags(uint8_t& r) {
+    uint16_t result = _A + r;
+    // 1011 1010
+    // 1100 1110
+    // ----------
+    // 1000 1000
+
+    if (result == 0) { // Set Z flag
+        _F |= 0x80;
+    }
+    _F &= ~(0x40); // Clear the N flag
+
+    if ((_A & 0xF) + (r & 0xF) > 0xF) { // Set H flag
+        _F |= 0x20;
+    }
+
+    if ((int)_A + (int)r > 0xFF) { // Set C flag
+        _F |= 0x10;
+    }
+    _A = result & 0xFF;
+}
+
+void CPU::setADCFlags(uint8_t& r) {
+    uint8_t carry = (_F & 0x10) ? 1 : 0;
+    uint16_t result = _A + r + carry;
+
+    if (result == 0) { // Set Z flag
+        _F |= 0x80;
+    }
+    _F &= ~(0x40); // Clear the N flag
+
+    if ((_A & 0xF) + (r & 0xF) > 0xF) { // Set H flag
+        _F |= 0x20;
+    }
+
+    if ((int)_A + (int)r > 0xFF) { // Set C flag
+        _F |= 0x10;
+    }
+    _A = result & 0xFF;
+}
+
+void CPU::setSUBFlags(uint8_t& r) {
+    uint16_t result = _A - r;
+
+    if (result == 0) { // Set Z flag
+        _F |= 0x80;
+    }
+
+    _F |= 0x40; // Set the N flag since N == subtraction
+
+    if ((_A & 0xF) < (r & 0xF)) { // Set H flag if we borrow from bit 4
+        _F |= 0x20;
+    }
+
+    if (_A < r) { // Set C flag if we borrow from bit 8
+        _F |= 0x10;
+    }
+    _A = result & 0xFF;
+}
+
+void CPU::setSBCFlags(uint8_t& r) {
+    uint8_t carry = (_F & 0x10) ? 1 : 0;
+    uint16_t result = _A - r - carry;
+
+    if (result == 0) { // Set Z flag
+        _F |= 0x80;
+    }
+
+    _F |= 0x40; // Set the N flag since N == subtraction
+
+    if ((_A & 0xF) < (r & 0xF)) { // Set H flag if we borrow from bit 4
+        _F |= 0x20;
+    }
+
+    if (_A < r) { // Set C flag if we borrow from bit 8
+        _F |= 0x10;
+    }
+    _A = result & 0xFF;
+}
+
+void CPU::setANDFlags(uint8_t& r) {
+    uint8_t result = _A & r;
+
+    _F = 0; // Clear all flags
+    
+    if (!result) {
+        _F |= 0x80; // Set Z flag
+    }
+    _F |= 0x20; // Set H flag, always 1 for AND
+    
+    _A = result;
+}
+
+void CPU::setXORFlags(uint8_t& r) {
+    uint8_t result = _A ^ r;
+
+    _F = 0; // Clear all flags
+
+    if (!result) {
+        _F |= 0x80;
+    }
+
+    _A = result;
+}
+
+void CPU::setORFlags(uint8_t& r) {
+    uint8_t result = _A | r;
+
+    _F = 0; // Clear all flags
+
+    if (!result) {
+        _F |= 0x80;
+    }
+
+    _A = result;
+}
+
+void CPU::setCPFlags(uint8_t& r) {
+    uint16_t result = _A - r;
+
+    if (result == 0) { // Set Z flag
+        _F |= 0x80;
+    }
+
+    _F |= 0x40; // Set the N flag since N == subtraction
+
+    if ((_A & 0xF) < (r & 0xF)) { // Set H flag if we borrow from bit 4
+        _F |= 0x20;
+    }
+
+    if (_A < r) { // Set C flag if we borrow from bit 8
+        _F |= 0x10;
+    }
+}
+
 void CPU::executeOpcode(uint8_t opcode) {
     // TODO: Figure out cycles!!
     // Fill with switches and opcodes 
@@ -518,6 +653,298 @@ void CPU::executeOpcode(uint8_t opcode) {
         case 0x5F: // LD E, (HL)
             _E = _A;
             break;
-        case 
-    }
+        case 0x60: // LD H, B
+            _H = _B;
+            break;
+        case 0x61: // LD H, C
+            _H = _C;
+            break;
+        case 0x62: // LD H, D
+            _H = _D;
+            break;
+        case 0x63: // LD H, E
+            _H = _E;
+            break;
+        case 0x64: // LD H, H
+            break;
+        case 0x65: // LD H, L
+            _H = _L;
+            break;
+        case 0x66: // LD H, (HL)
+            uint8_t val = _mem.read(getHL());
+            _H = val;
+            break;
+        case 0x67: // LD H, A
+            _H = _A;
+        case 0x68: // LD L, B
+            _L = _B;
+            break;
+        case 0x69: // LD L, C
+            _L = _C;
+            break;
+        case 0x6A: // LD L, D
+            _L = _D;
+            break;
+        case 0x6B: // LD L, E
+            _L = _E;
+            break;
+        case 0x6C: // lD L , H
+            _L = _H;
+            break;
+        case 0x6D: // LD L, L
+            break;
+        case 0x6E: // LD L, (HL)
+            uint8_t val = _mem.read(getHL());
+            break;
+        case 0x6F: // LD L, A
+            _L = _A;
+            break;
+        case 0x70: // LD (HL), B
+            _mem.write(_mem.read(getHL()), _B);
+            break;
+        case 0x71: // LD (HL), C
+            _mem.write(_mem.read(getHL()), _C);
+            break;
+        case 0x72: // LD (HL), D
+            _mem.write(_mem.read(getHL()), _D);
+            break;
+        case 0x73: // LD (HL), E
+            _mem.write(_mem.read(getHL()), _E);
+            break;
+        case 0x74: // LD (HL), H
+            _mem.write(_mem.read(getHL()), _H);
+            break;
+        case 0x75: // LD (HL), L
+            _mem.write(_mem.read(getHL()), _L);
+            break;
+        case 0x76: // HALT
+            // TODO: Figure out what IME flag is and how it works then implement this
+        case 0x77: // LD (HL), A
+            _mem.write(_mem.read(getHL()), _A);
+            break;
+        case 0x78: // LD A, B
+            _A = _B;
+            break;
+        case 0x79: // LD A, C
+            _A = _C;
+            break;
+        case 0x7A: // LD A, D
+            _A = _D;
+            break;
+        case 0x7B: // LD A, E
+            _A = _E;
+            break;
+        case 0x7C: // LD A, H
+            _A = _H;
+            break;
+        case 0x7D: // LD A, L
+            _A = _L;
+            break;
+        case 0x7E: // LD A, (HL)
+            uint8_t val = _mem.read(getHL());
+            _A = val;
+            break;
+        case 0x7F: // LD A, A
+            break;
+        case 0x80: // ADD A,B
+            setADDFlags(_B);
+            break;
+        case 0x81: // ADD A, C
+            setADDFlags(_C);
+            break;
+        case 0x82: // ADD A, D
+            setADDFlags(_D);
+            break;
+        case 0x83: // ADD A, E
+            setADDFlags(_E);
+            break;
+        case 0x84: // ADD A, H
+            setADDFlags(_H);
+            break;
+        case 0x85: // ADD A, L
+            setADDFlags(_L);
+            break;
+        case 0x86: // ADD A, (HL)
+            uint8_t val = _mem.read(getHL());
+            setADDFlags(val);
+            break;
+        case 0x87: // ADD A, A
+            setADDFlags(_A);
+            break;
+        case 0x88: // ADC A, B
+            setADCFlags(_B);
+            break;
+        case 0x89: // ADC A, C
+            setADCFlags(_C);
+            break;
+        case 0x8A: // ADC A, D
+            setADCFlags(_D);
+            break;
+        case 0x8B: // ADC A, E
+            setADCFlags(_E);
+            break;
+        case 0x8C: // ADC A, H
+            setADCFlags(_H);
+            break;
+        case 0x8D: // ADC A, L
+            setADCFlags(_L); 
+            break;
+        case 0x8E: // ADC A, (HL)
+            uint8_t val = _mem.read(getHL());
+            setADCFlags(val);
+            break;
+        case 0x8F: // ADC A, A
+            setADCFlags(_A);
+            break;
+        case 0x90: // SUB B
+            setSUBFlags(_B);
+            break;
+        case 0x91: // SUB C
+            setSUBFlags(_C);
+            break;
+        case 0x92: // SUB D
+            setSUBFlags(_D);
+            break;
+        case 0x93: // SUB E
+            setSUBFlags(_E);
+            break;
+        case 0x94: // SUB H
+            setSUBFlags(_H);
+            break;
+        case 0x95: // SUB L
+            setSUBFlags(_L);
+            break;
+        case 0x96: // SUB (HL)
+            uint8_t val = _mem.read(getHL());
+            setSUBFlags(val);
+            break;
+        case 0x97: // SUB A
+            setSUBFlags(_A);
+            break;
+        case 0x98: // SBC B
+            setSBCFlags(_B);
+            break;
+        case 0x99: // SBC C
+            setSBCFlags(_C);
+            break;
+        case 0x9A: // SBC D
+            setSBCFlags(_D);
+            break;
+        case 0x9B: // SBC E
+            setSBCFlags(_E);
+            break;
+        case 0x9C: // SBC H
+            setSBCFlags(_H);
+            break;
+        case 0x9D: // SBC L
+            setSBCFlags(_L);
+            break;
+        case 0x9E: // SBC (HL)
+            uint8_t val = _mem.read(getHL());
+            setSBCFlags(val);
+            break;
+        case 0x9F: // SBC A
+            setSBCFlags(_A);
+            break;
+        case 0xA0: // AND B
+            setANDFlags(_B);
+            break;
+        case 0xA1: // AND C
+            setANDFlags(_C);
+            break;
+        case 0xA2: // AND D
+            setANDFlags(_D);
+            break;
+        case 0xA3: // AND E
+            setANDFlags(_E);
+            break;
+        case 0xA4: // AND H
+            setANDFlags(_H);
+            break;
+        case 0xA5: // and L
+            setANDFlags(_L);
+            break;
+        case 0xA6: // AND (HL)
+            uint8_t val = _mem.read(getHL());
+            setANDFlags(val);
+            break;
+        case 0xA7: // AND A
+            setANDFlags(_A);
+            break;
+        case 0xA8: // XOR B
+            setXORFlags(_B);
+            break;
+        case 0xA9: // XOR C
+            setXORFlags(_C);
+            break;
+        case 0xAA: // XOR D
+            setXORFlags(_D);
+            break;
+        case 0xAB: // XOR E
+            setXORFlags(_E);
+            break;
+        case 0xAC: // XOR H
+            setXORFlags(_H);
+            break;
+        case 0xAD: // XOR L
+            setXORFlags(_L);
+            break;
+        case 0xAE: // XOR (HL)
+            uint8_t val = _mem.read(getHL());
+            setXORFlags(val);
+            break;
+        case 0xAF: // XOR A
+            setXORFlags(_A);
+            break;
+        case 0xB0: // OR B
+            setORFlags(_B);
+            break;
+        case 0xB1: // OR C
+            setORFlags(_C);
+            break;
+        case 0xB2: // or D
+            setORFlags(_D);
+            break;
+        case 0xB3: // or E
+            setORFlags(_E);
+            break;
+        case 0xB4: // OR H
+            setORFlags(_H);
+            break;
+        case 0xB5: // OR L
+            setORFlags(_L);
+            break;
+        case 0xB6: // or (HL);
+            uint8_t val = _mem.read(getHL());
+            setORFlags(val);
+            break;
+        case 0xB7: // OR A
+            setORFlags(_A);
+            break;
+        case 0xB8: // CP B
+            setCPFlags(_B);
+            break;
+        case 0xB9: // CP C
+            setCPFlags(_C);
+            break;
+        case 0xBA: // CP D
+            setCPFlags(_D);
+            break;
+        case 0xBB: // CP E
+            setCPFlags(_E);
+            break;
+        case 0xBC: // CP H
+            setCPFlags(_H);
+            break;
+        case 0xBD: // CP L
+            setCPFlags(_L);
+            break;
+        case 0xBE: // CP (HL)
+            uint8_t val = _mem.read(getHL());
+            setCPFlags(val);
+            break;
+        case 0xBF: // CP A
+            setCPFlags(_A);
+            break;
+    }   
 }
