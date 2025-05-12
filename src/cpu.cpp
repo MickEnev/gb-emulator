@@ -946,5 +946,13 @@ void CPU::executeOpcode(uint8_t opcode) {
         case 0xBF: // CP A
             setCPFlags(_A);
             break;
+        case 0xC0: // RET NZ
+
+            // TODO: Implement stack class
+            
+            if (!(_F & 0x80)) {
+                uint16_t addr = fetch16();
+                _PC = addr;
+            }
     }   
 }
