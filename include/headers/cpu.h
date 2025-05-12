@@ -47,6 +47,9 @@ class CPU {
 
         uint8_t fetch8();
         uint16_t fetch16();
+
+        void setINCFlags(uint8_t& r);
+        void setDECFlags(uint8_t& r);
         
 };
 
