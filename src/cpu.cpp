@@ -72,6 +72,19 @@ uint16_t CPU::fetch16() {
     return (high << 8) | low;
 }
 
+void CPU::push16(uint16_t val) {
+    _SP--;
+    _mem.write(_SP, (val & 0xFF));         // Low byte
+    _SP--;
+    _mem.write(_SP, (val >> 8) & 0xFF);    // High byte
+}
+
+uint16_t CPU::pop16() {
+    uint8_t low = _mem.read(_SP++);
+    uint8_t high = _mem.read(_SP++);
+    return (high << 8) | low; // ✅ Correct
+}
+
 void CPU::setINCFlags(uint8_t& r) {
     r++;
     _F &= 0x10; // Keep C flag, clear Z, N, H
@@ -222,17 +235,141 @@ void CPU::setCPFlags(uint8_t& r) {
     }
 }
 
-void CPU::push16(uint16_t val) {
-    _SP--;
-    _mem.write(_SP, (val & 0xFF));         // Low byte
-    _SP--;
-    _mem.write(_SP, (val >> 8) & 0xFF);    // High byte
+void CPU::RLC(uint8_t& r) {
+    uint8_t carry = (r & 0x80) >> 7;   // Get bit 7
+            r = (r << 1) | carry;             // Rotate left circular 
+
+            _F = 0; // Clear the upper 4 F bits which house the flags
+
+            if (r == 0) {
+                _F |= (1 << 7);
+            }
+
+            if (carry) { // If carry set the 000*0000 to 1
+                _F |= (1 << 4);
+            }
 }
 
-uint16_t CPU::pop16() {
-    uint8_t low = _mem.read(_SP++);
-    uint8_t high = _mem.read(_SP++);
-    return (high << 8) | low; // ✅ Correct
+void CPU::RL(uint8_t& r) {
+        uint8_t carry = (r & 0x80) >> 7; // Get the highest bit
+        uint8_t old_carry = (_F & 0x10) >> 4;
+
+        r = (r << 1) | old_carry;
+
+        _F = 0;
+
+        if (r == 0) {
+            _F |= (1 << 7);
+        }
+
+        if (carry) {
+            _F |= (1 << 4);
+        }
+}
+
+void CPU::RRC(uint8_t& r) {
+    uint8_t carry = (r & 0x01);
+    r = (r >> 1) | (carry << 7);
+
+    _F = 0;
+
+    if (r == 0) {
+        _F |= (1 << 7);
+    }
+
+    if (carry) {
+        _F |= (1 << 4);
+    }
+}
+
+void CPU::RR(uint8_t& r) {
+    uint8_t carry = (r & 0x01);
+    uint8_t old_carry = (_F & 0x10) >> 4;
+
+    r = (r >> 1) | (old_carry << 7);
+
+    _F = 0;
+
+    if (r == 0) {
+        _F |= (1 << 7);
+    }
+
+    if (carry) {
+        _F |= (1 << 4);
+    }
+}
+
+void CPU::SLA(uint8_t& r) {
+    uint8_t carry = (r & 0x80) >> 7; // Get the highest bit
+    r <<= 1;
+    _F = 0;
+
+    if (r == 0) {
+        _F |= (1 << 7);
+    }
+
+    if (carry) {
+        _F |= (1 << 4);
+    }
+}
+
+void CPU::SRA(uint8_t& r) {
+    uint8_t carry = (r & 0x01);
+    uint8_t bit7 = r & 0x80;
+    r >>= 1;
+    r |= bit7;
+    _F = 0;
+
+    if (r == 0) {
+        _F |= (1 << 7);
+    }
+
+    if (carry) {
+        _F |= (1 << 4);
+    }
+}
+
+void CPU::SRL(uint8_t& r) {
+    uint8_t carry = (r & 0x01);
+    r >>= 1;
+    _F = 0;
+
+    if (r == 0) {
+        _F |= (1 << 7);
+    }
+
+    if (carry) {
+        _F |= (1 << 4);
+    }
+}
+
+void CPU::SWAP(uint8_t& r) {
+    r = (r >> 4) | (r << 4);
+    _F = 0;
+    if (r == 0) {
+        _F |= (1 << 7); // Set Z
+    }
+}
+
+void CPU::BIT(uint8_t& r, int n) { // Check if bit n is set in r if not set z = 1 || set n = 0 h = 1
+    _F &= ~(1 << 7); // Clear Z
+    _F &= ~(1 << 6); // Clear H
+    _F &= ~(1 << 5); // Clear N
+
+
+    if (!(r & (1 << n))) {
+        _F |= (1 << 7);
+    }
+
+    _F |= (1 << 6); // Set H (always set)
+}
+
+void CPU::SET(uint8_t& r, int n) {
+    r |= (1 << n);
+}
+
+void CPU::RES(uint8_t& r, int n) {
+    r |= ~(1 << n);
 }
 
 void CPU::executeOpcode(uint8_t opcode) {
@@ -264,6 +401,10 @@ void CPU::executeOpcode(uint8_t opcode) {
             _A = (_A << 1) | carry;             // Rotate left circular 
 
             _F = 0; // Clear the upper 4 F bits which house the flags
+
+            if (_A == 0) {
+                _F |= (1 << 7);
+            }
 
             if (carry) { // If carry set the 000*0000 to 1
                 _F |= (1 << 4);
@@ -311,6 +452,10 @@ void CPU::executeOpcode(uint8_t opcode) {
 
             _F = 0;
 
+            if (_A == 0) {
+                _F |= (1 << 7);
+            }
+
             if (carry) {
                 _F |= (1 << 4);
             }
@@ -344,6 +489,10 @@ void CPU::executeOpcode(uint8_t opcode) {
             _A = (_A << 1) | old_carry;
 
             _F = 0;
+            
+            if (_A == 0) {
+                _F |= (1 << 7);
+            }
 
             if (carry) {
                 _F |= (1 << 4);
@@ -390,6 +539,10 @@ void CPU::executeOpcode(uint8_t opcode) {
             _A = (_A >> 1) | (old_carry << 7);
 
             _F = 0;
+
+            if (_A == 0) {
+                _F |= (1 << 7);
+            }
 
             if (carry) {
                 _F |= (1 << 4);
@@ -732,6 +885,7 @@ void CPU::executeOpcode(uint8_t opcode) {
             break;
         case 0x76: // HALT
             // TODO: Figure out what IME flag is and how it works then implement this
+
         case 0x77: // LD (HL), A
             _mem.write(_mem.read(getHL()), _A);
             break;
@@ -1010,6 +1164,230 @@ void CPU::executeOpcode(uint8_t opcode) {
             break;
         case 0xCB: // PREFIX CB
             // TODO: Implement CB TABLE IN HERE :|
+            uint8_t cb_opcode = fetch8();
+            switch (cb_opcode & 0x00FF) {
+                case 0x00:
+                    RLC(_B);
+                    break;
+                case 0x01:
+                    RLC(_C);
+                    break;
+                case 0x02:
+                    RLC(_D);
+                    break;
+                case 0x03: 
+                    RLC(_E);
+                    break;
+                case 0x04:
+                    RLC(_H);
+                    break;
+                case 0x05:
+                    RLC(_L);
+                    break;
+                case 0x06:
+                    uint8_t val = _mem.read(getHL());
+                    RLC(val);
+                    break;
+                case 0x07:
+                    RLC(_A);
+                    break;
+                case 0x08:
+                    RRC(_B);
+                    break;
+                case 0x09:
+                    RRC(_C);
+                    break;
+                case 0x0A:
+                    RRC(_D);
+                    break;
+                case 0x0B:
+                    RRC(_E);
+                    break;
+                case 0x0C:
+                    RRC(_H);
+                    break;
+                case 0x0D:
+                    RRC(_L);
+                    break;
+                case 0x0E:
+                    uint8_t val = _mem.read(getHL());
+                    RRC(val);
+                    break;
+                case 0x0F:
+                    RRC(_A);
+                    break;
+                case 0x10:
+                    RL(_B);
+                    break;
+                case 0x11:
+                    RL(_C);
+                    break;
+                case 0x12:
+                    RL(_D);
+                    break;
+                case 0x13:
+                    RL(_E);
+                    break;
+                case 0x14:
+                    RL(_H);
+                    break;
+                case 0x15:
+                    RL(_L);
+                    break;
+                case 0x16:
+                    uint8_t val = _mem.read(getHL());
+                    break;
+                case 0x17:
+                    RL(_A);
+                    break;
+                case 0x18:
+                    RR(_B);
+                    break;
+                case 0x19:
+                    RR(_C);
+                    break;
+                case 0x1A:
+                    RR(_D);
+                    break;
+                case 0x1B:
+                    RR(_E);
+                    break;
+                case 0x1C:
+                    RR(_H);
+                    break;
+                case 0x1D:
+                    RR(_L);
+                    break;
+                case 0x1E:
+                    uint8_t val = _mem.read(getHL());
+                    break;
+                case 0X1F:
+                    RR(_A);
+                    break;
+                case 0x20:
+                    SLA(_B);
+                    break;
+                case 0x21:
+                    SLA(_C);
+                    break;
+                case 0x22:
+                    SLA(_D);
+                    break;
+                case 0x23:
+                    SLA(_E);
+                    break;
+                case 0x24:
+                    SLA(_H);
+                    break;
+                case 0x25:
+                    SLA(_L);
+                    break;
+                case 0x26:
+                    uint8_t val = _mem.read(getHL());
+                    break;
+                case 0x27:
+                    SLA(_A);
+                    break;
+                case 0x28:
+                    SRA(_B);
+                    break;
+                case 0x29:
+                    SRA(_C);
+                    break;
+                case 0x2A:
+                    SRA(_D);
+                    break;
+                case 0x2B:
+                    SRA(_E);
+                    break;
+                case 0x2C:
+                    SRA(_H);
+                    break;
+                case 0x2D:
+                    SRA(_L);
+                    break;
+                case 0x2E:
+                    uint8_t val = _mem.read(getHL());
+                    break;
+                case 0x2F:
+                    SRA(_A);
+                    break;
+                case 0x30:
+                    SWAP(_B);
+                    break;
+                case 0x31: 
+                    SWAP(_C);
+                    break;
+                case 0x32:
+                    SWAP(_D);
+                    break;
+                case 0x33:
+                    SWAP(_E);
+                    break;
+                case 0x34:
+                    SWAP(_H);
+                    break;
+                case 0x35:
+                    SWAP(_L);
+                    break;
+                case 0x36:
+                    uint8_t val = _mem.read(getHL());
+                    SWAP(val);
+                    break;
+                case 0x37:
+                    SWAP(_A);
+                    break;
+                case 0x38:
+                    SRL(_B);
+                    break;
+                case 0x39:
+                    SRL(_C);
+                    break;
+                case 0x3A:
+                    SRL(_D);
+                    break;
+                case 0x3B:
+                    SRL(_E);
+                    break;
+                case 0x3C:
+                    SRL(_H);
+                    break;
+                case 0x3D:
+                    SRL(_L);
+                    break;
+                case 0x3E:
+                    uint8_t val = _mem.read(getHL());
+                    SRL(val);
+                    break;
+                case 0x3F:
+                    SRL(_A);
+                    break;
+                case 0x40: 
+                    BIT(_B, 0);
+                    break;
+                case 0x41:
+                    BIT(_C, 0);
+                    break;
+                case 0x42:
+                    BIT(_D, 0);
+                    break;
+                case 0x43:
+                    BIT(_E, 0);
+                    break;
+                case 0x44:
+                    BIT(_H, 0);
+                    break;
+                case 0x45:
+                    BIT(_L, 0);
+                    break;
+                case 0x45:
+                    uint8_t val = _mem.read(getHL());
+                    BIT(val, 0);
+                    break;
+                case 0x46:
+                    BIT(_A, 0);
+                    break;
+            }
         case 0xCC: // CALL Z, a16
             uint16_t addr = fetch16();
             if ((_F & 0x80)) {

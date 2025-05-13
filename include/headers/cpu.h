@@ -4,6 +4,7 @@
 #include <iostream>
 #include <cstdint>
 #include <vector>
+#include <map>
 #include "memory.h"
 
 class CPU {
@@ -35,9 +36,11 @@ class CPU {
         Memory _mem;
         // Registers
         uint8_t _A, _B, _C, _D, _E, _F, _H, _L;
-
         // _F register contains flags: z n h c // zero subtraction half carry carry
         // These live in the upper 4 bits of F the lower 4 bits do not get used
+
+        // Interrupt flag
+        bool _IME;
 
         uint16_t _PC, _SP; // Program counter/ Pointer and Stack Pointer
 
@@ -65,6 +68,28 @@ class CPU {
 
         void setORFlags(uint8_t& r);
         void setCPFlags(uint8_t& r);
+
+        // CB Operations
+
+        // Rotates and shifts
+        void RLC(uint8_t& r);
+        void RL(uint8_t& r);
+
+        void RRC(uint8_t& r);
+        void RR(uint8_t& r);
+
+        void SLA(uint8_t& r);
+        void SRA(uint8_t& r);
+        void SRL(uint8_t& r);
+
+        void SWAP(uint8_t& r);
+
+        // Bit Ops
+        void BIT(uint8_t& r, int n);
+        void SET(uint8_t& r, int n);
+        void RES(uint8_t& r, int n);
+
+
         
 };
 
