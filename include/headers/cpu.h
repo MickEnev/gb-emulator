@@ -41,6 +41,9 @@ class CPU {
 
         uint16_t _PC, _SP; // Program counter/ Pointer and Stack Pointer
 
+        void push16(uint16_t val);
+        uint16_t pop16();
+
         bool _stopped = false;
 
         void executeOpcode(uint8_t opcode);

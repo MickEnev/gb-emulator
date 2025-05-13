@@ -222,6 +222,19 @@ void CPU::setCPFlags(uint8_t& r) {
     }
 }
 
+void CPU::push16(uint16_t val) {
+    _SP--;
+    _mem.write(_SP, (val & 0xFF));         // Low byte
+    _SP--;
+    _mem.write(_SP, (val >> 8) & 0xFF);    // High byte
+}
+
+uint16_t CPU::pop16() {
+    uint8_t low = _mem.read(_SP++);
+    uint8_t high = _mem.read(_SP++);
+    return (high << 8) | low; // ✅ Correct
+}
+
 void CPU::executeOpcode(uint8_t opcode) {
     // TODO: Figure out cycles!!
     // Fill with switches and opcodes 
@@ -947,12 +960,249 @@ void CPU::executeOpcode(uint8_t opcode) {
             setCPFlags(_A);
             break;
         case 0xC0: // RET NZ
-
-            // TODO: Implement stack class
-            
             if (!(_F & 0x80)) {
-                uint16_t addr = fetch16();
+                _PC = pop16();
+            }
+            break;
+        case 0xC1: // POP BC
+            setBC(pop16());
+            break;
+        case 0xC2: // JP NZ, a16
+        uint16_t addr = fetch16();
+            if (!(_F & 0x80)) {
                 _PC = addr;
             }
+            break;
+        case 0xC3: // JP a16
+            _PC = fetch16();
+            break;
+        case 0XC4: // CALL NZ, a16
+            uint16_t addr = fetch16();
+            if (!(_F & 0x80)) {
+                push16(_PC);
+                _PC = addr;
+            }
+            break;
+        case 0xC5: // PUSH BC
+            push16(getBC());
+            break;
+        case 0xC6: // ADD A, d8
+            uint8_t val = fetch8();
+            setADDFlags(val);
+            break;
+        case 0xC7: // RST 00H
+            uint16_t addr = 0x00;
+            push16(_PC);
+            _PC = addr;
+            break;
+        case 0xC8: // RET Z
+            if ((_F & 0x80)) {
+                _PC = pop16();
+            }
+            break;
+        case 0xC9: // RET
+            _PC = pop16();
+            break;
+        case 0xCA: // JP Z, a16
+            if (!(_F & 0x80)) {
+                _PC = fetch16();
+            }
+            break;
+        case 0xCB: // PREFIX CB
+            // TODO: Implement CB TABLE IN HERE :|
+        case 0xCC: // CALL Z, a16
+            uint16_t addr = fetch16();
+            if ((_F & 0x80)) {
+                push16(_PC);
+                _PC = addr;
+            }
+            break;
+        case 0xCD: // CALL a16
+            uint16_t addr = fetch16();
+            push16(_PC);
+            _PC = addr;
+            break;
+        case 0xCE: // ADC A, d8
+            uint8_t val = fetch8();
+            setADCFlags(val);
+            break;
+        case 0XCF: // RST 08H
+            uint16_t addr = 0x08;
+            push16(_PC);
+            _PC = addr;
+            break;
+        case 0xD0: // RET NC
+            if (!(_F & 0x10)) {
+                _PC = pop16();
+            }
+            break;
+        case 0xD1: // POP DE
+            setDE(pop16());
+            break;
+        case 0xD2: // JP NC, a16
+            uint16_t addr = fetch16();
+            if (!(_F & 0x10)) {
+                _PC = addr;
+            }
+            break;
+        case 0xD4: // CALL NC, a16
+            uint16_t addr = fetch16();
+            if (!(_F & 0x10)) {
+                push16(_PC);
+                _PC = addr;
+            }
+            break;
+        case 0xD5: // PUSH DE
+            push16(getDE());
+            break;
+        case 0xD6: // SUB d8
+            uint8_t val = fetch8();
+            setSUBFlags(val);
+            break;
+        case 0xD7: // RST 10H
+            uint16_t addr = 0x10;
+            push16(_PC);
+            _PC = addr;
+            break;
+        case 0xD8: // RET C
+            if ((_F & 0x10)) {
+                _PC = pop16();
+            }
+            break;
+        case 0xD9: // RETI
+            // TODO: IME FLAG
+        case 0xDA: // JP C, a16
+            uint16_t addr = fetch16();
+            if ((_F & 0x10)) {
+                _PC = addr;
+            }
+            break;
+        case 0xDC: // CALL C, a16
+            uint16_t addr = fetch16();
+            if ((_F & 0x10)) {
+                push16(_PC);
+                _PC = addr;
+            }
+            break;
+        case 0xDE: // SBC A, d8
+            uint8_t val = fetch8();
+            setSBCFlags(val);
+            break;
+        case 0xDF: // RST 18H
+            uint16_t addr = 0x18;
+            push16(_PC);
+            _PC = addr;
+            break;
+        case 0xE0: // LDH (a8), A
+            _mem.write(0xFF00 + fetch8(), _A);
+            break;
+        case 0xE1: // POP HL
+            setHL(pop16());
+            break;
+        case 0xE2: // LD (C), A
+            _mem.write(0xFF00 + _C, _A);
+            break;
+        case 0xE5: // PUSH HL
+            push16(getHL());
+            break;
+        case 0xE6: // AND d8
+            uint8_t val = fetch8();
+            setANDFlags(val);
+            break;
+        case 0xE7: // RST 20H
+            uint16_t addr = 0x20;
+            push16(_PC);
+            _PC = addr;
+            break;
+        case 0xE8: // ADD SP, r8
+            int8_t r8 = (int8_t)fetch8();
+            uint16_t result = _SP + r8;
+            _F &= 0x10; // Clear all flags except for the carry flag
+
+            // Set the Carry flag if the result exceeds 16-bit bounds (i.e., if there's a carry from bit 8)
+            if ((int16_t)(_SP + r8) > 0xFFFF || (int16_t)(_SP + r8) < 0) {
+                _F |= 0x10;  // Set the Carry flag
+            }
+
+            // Half carry flag check (carry from bit 4)
+            if (((_SP & 0xF) + (r8 & 0xF)) > 0xF) {
+                _F |= 0x20;  // Set the Half Carry flag
+            }
+
+            // Update SP with the result
+            _SP = result;
+        case 0xE9: // JP (HL)
+            _PC = getHL();
+            break;
+        case 0xEA: // LD (a16), A
+            _mem.write(fetch16(), _A);
+            break;
+        case 0xEE: // XOR d8
+            uint8_t val = fetch8();
+            setXORFlags(val);
+            break;
+        case 0xEF: // RST 28H
+            uint16_t addr = 0x28;
+            push16(_PC);
+            _PC = addr;
+            break;
+        case 0XF0: // LD A, (a8)
+            _A = _mem.read(0xFF00 + fetch8());
+            break;
+        case 0xF1: // POP AF
+            setAF(pop16());
+            break;
+        case 0xF2: // LD A, (C)
+            _A = _mem.read(0xFF00 + _C);
+            break;
+        case 0xF3: // DI
+            // CLEAR IME FLAG
+        case 0xF5: // PUSH AF
+            push16(getAF());
+            break;
+        case 0xF6: // OR d8
+            uint8_t val = fetch8();
+            setORFlags(val);
+            break;
+        case 0xF7: // RST 30H
+            uint16_t addr = 0x30;
+            push16(_PC);
+            _PC = addr;
+            break;
+        case 0xF8: // LD HL, SP+r8
+            {
+            int8_t r8 = static_cast<int8_t>(fetch8());  // Fetch the signed 8-bit immediate value
+            uint32_t result = _SP + r8;  // Add SP and r8
+            setHL(result & 0xFFFF);  // Store the lower 16 bits of the result in HL
+            // Update the flags:
+            _F = 0;  // Clear flags before setting them
+            
+            if ((result & 0x10000) != 0) {  // Carry out of bit 15 (overflow)
+                _F |= 0x10;  // Set the C flag
+            }
+
+            // Set the H flag if there is a carry from bit 11 to bit 12 (half carry)
+            if (((_SP & 0xFFF) + (r8 & 0xFFF)) & 0x1000) {
+                _F |= 0x20;  // Set H flag
+            }
+        }
+        break;
+        case 0xF9: // LD SP, HL
+            _SP = getHL();
+            break;
+        case 0xFA: // LD A, (a16)
+            _A = _mem.read(0xFF00 + fetch16());
+            break;
+        case 0xFB: // EI
+            // SET IME FLAG
+        case 0xFE: // CP d8
+            uint8_t val = fetch8();
+            setCPFlags(val);
+            break;
+        case 0xFF: // RST 38H
+            uint16_t addr = 0x38;
+            push16(_PC);
+            _PC = addr;
+            break;
     }   
 }
