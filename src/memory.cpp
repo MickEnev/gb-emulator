@@ -21,6 +21,14 @@ void Memory::write(uint16_t address, uint8_t value) {
 }   
 
 void Memory::loadROM(const std::vector<uint8_t>& rom) {
+    std::cout << "Loading ROM, size: " << rom.size() << " bytes\n";
     size_t loadSize = std::min(rom.size(), static_cast<size_t>(0x8000));
+    std::cout << "Loading " << loadSize << " bytes into memory\n";
     std::copy(rom.begin(), rom.begin() + loadSize, _mem.begin());
+
+    std::cout << "First 16 bytes of ROM: ";
+    for (int i = 0; i < 16; ++i) {
+        std::cout << std::hex << (int)rom[i] << " ";
+    }
+    std::cout << std::endl;
 }

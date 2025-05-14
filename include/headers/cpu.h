@@ -31,6 +31,11 @@ class CPU {
 
         void step();
 
+        void loadROM(const std::vector<uint8_t>& rom);
+
+        uint8_t peek(uint16_t addr) const;
+        bool isHalted() const;
+
 
     private:
         Memory _mem;
@@ -41,6 +46,7 @@ class CPU {
 
         // Interrupt flag
         bool _IME;
+        bool _imeScheduled;
 
         uint16_t _PC, _SP; // Program counter/ Pointer and Stack Pointer
 
@@ -48,6 +54,9 @@ class CPU {
         uint16_t pop16();
 
         bool _stopped = false;
+        bool _halted = false;
+
+        bool interruptPending();
 
         void executeOpcode(uint8_t opcode);
 
