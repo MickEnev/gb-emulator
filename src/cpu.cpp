@@ -89,11 +89,13 @@ void CPU::step() {
     uint16_t oldPC = _PC;
     uint8_t opcode = fetch8();
 
-    std::cout << "Executing opcode: " << std::hex << (int)opcode << " at PC: " << oldPC << std::endl;
+    printf("PC: %04X  OPCODE: %02X\n", oldPC, opcode);
+
+    //std::cout << "Executing opcode: " << std::hex << (int)opcode << " at PC: " << oldPC << std::endl;
     //std::cout << std::hex << (int)opcode << std::endl;
     executeOpcode(opcode);
 
-    std::cout << "After executing opcode: " << std::hex << (int)opcode << " PC: " << _PC << std::endl;
+    //std::cout << "After executing opcode: " << std::hex << (int)opcode << " PC: " << _PC << std::endl;
 
     // Enable interrupts if EI was just executed
     if (_imeScheduled) {
@@ -170,12 +172,16 @@ void CPU::setDECFlags(uint8_t& r) {
     uint8_t old = r;
     r--;
 
-    _F &= 0x10; // Keep C flag, clear Z, N, H
+    // Preserve only the C flag (bit 4)
+    _F &= 0x10;
 
-    if (r == 0) _F |= 0x80; // Z
-    _F |= 0x40;             // N = 1
+    if (r == 0)
+        _F |= 0x80;  // Z flag
 
-    if ((old & 0x0F) == 0x00) _F |= 0x20; // H if borrow from bit 4
+    _F |= 0x40;      // N flag (subtract)
+
+    if ((old & 0x0F) == 0x00)
+        _F |= 0x20;  // H flag (borrow from bit 4)
 }
 
 void CPU::setADDFlags(uint8_t& r) {
@@ -611,7 +617,7 @@ void CPU::executeOpcode(uint8_t opcode) {
             break;}
         case 0x20: // JR NZ, r8
             {
-            int8_t offset = (int8_t)fetch8();
+            int8_t offset = static_cast<int8_t>(_mem.read(_PC++)); // Read *signed* byte directly
             if (!(_F & 0x80)) { // If Z == 0, jump
                 _PC += offset;
             }
@@ -1200,6 +1206,7 @@ void CPU::executeOpcode(uint8_t opcode) {
             break;}
         case 0xC3: // JP a16
             _PC = fetch16();
+            printf("JP to %04X\n", _PC);
             break;
         case 0XC4: // CALL NZ, a16
             {uint16_t addr = fetch16();
