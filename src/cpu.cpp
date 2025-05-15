@@ -3,6 +3,19 @@
 CPU::CPU() {
     _PC = 0x0100;
     _SP = 0xFFFE;
+    _A = 0x01;
+    _F = 0xB0;
+    _B = 0x00;
+    _C = 0x13;
+    _D = 0x00;
+    _E = 0xD8;
+    _H = 0x01;
+    _L = 0x4D;
+
+    _IME = false;
+    _imeScheduled = false;
+    _halted = false;
+    _stopped = false;
 }
 
 uint16_t CPU::getAF() const {
@@ -58,31 +71,51 @@ void CPU::setSP(uint16_t val) {
 }
 
 void CPU::step() {
-    if (_halted) {
-        std::cout << "CPU HALTED\n";
+    // Handle interrupts first
+    if (_IME && interruptPending()) {
+        serviceInterrupt();
         return;
-        // Skip executing instructions, still handle timers, interrupts, etc.
+    }
+
+    if (_halted) {
+        // Wake up if an interrupt is pending (even if IME is off)
         if (interruptPending()) {
-            _halted = false; // Resume when an interrupt happens
+            _halted = false;
         }
         return;
     }
 
-    
-
+    uint16_t oldPC = _PC;
     uint8_t opcode = fetch8();
 
-    std::cout << "Executing opcode: " << std::hex << (int)opcode << " at PC: " << _PC << std::endl;
+    std::cout << "Executing opcode: " << std::hex << (int)opcode << " at PC: " << oldPC << std::endl;
 
     executeOpcode(opcode);
 
     std::cout << "After executing opcode: " << std::hex << (int)opcode << " PC: " << _PC << std::endl;
 
-    
-
+    // Enable interrupts if EI was just executed
     if (_imeScheduled) {
         _IME = true;
         _imeScheduled = false;
+    }
+}
+
+void CPU::serviceInterrupt() {
+    uint8_t IE = _mem.read(0xFFFF);
+    uint8_t IF = _mem.read(0xFF0F);
+    uint8_t triggered = IE & IF;
+
+    if (triggered == 0) return;
+
+    for (int i = 0; i < 5; ++i) {
+        if (triggered & (1 << i)) {
+            _IME = false;
+            _mem.write(0xFF0F, IF & ~(1 << i)); // Clear the interrupt flag
+            push16(_PC); // Save current PC
+            _PC = 0x40 + i * 0x08; // Jump to the interrupt vector
+            return;
+        }
     }
 }
 
@@ -110,39 +143,44 @@ uint16_t CPU::pop16() {
 }
 
 void CPU::setINCFlags(uint8_t& r) {
-    r++;
-    _F &= 0x10; // Keep C flag, clear Z, N, H
-    if (r == 0) _F |= 0x80; // Z
-    if ((r & 0x0F) == 0x00) _F |= 0x20;
+    uint8_t result = r + 1;
+
+    _F &= 0x10; // Keep C flag only, clear Z, N, H
+
+    if ((r & 0x0F) + 1 > 0x0F) {
+        _F |= 0x20; // H = 1 if lower nibble overflowed
+    }
+
+    if (result == 0) {
+        _F |= 0x80; // Z = 1 if result is 0
+    }
+
+    // N is cleared always by INC
+    // (we already cleared it above)
+
+    r = result;
 }
 
 void CPU::setDECFlags(uint8_t& r) {
+    uint8_t old = r;
     r--;
+
     _F &= 0x10; // Keep C flag, clear Z, N, H
+
     if (r == 0) _F |= 0x80; // Z
-    _F |= 0x40; // N = 1
-    if ((r & 0x0F) == 0x0F) _F |= 0x20; // H if borrow from bit 4
+    _F |= 0x40;             // N = 1
+
+    if ((old & 0x0F) == 0x00) _F |= 0x20; // H if borrow from bit 4
 }
 
 void CPU::setADDFlags(uint8_t& r) {
     uint16_t result = _A + r;
-    // 1011 1010
-    // 1100 1110
-    // ----------
-    // 1000 1000
 
-    if (result == 0) { // Set Z flag
-        _F |= 0x80;
-    }
-    _F &= ~(0x40); // Clear the N flag
+    _F = 0;
+    if ((result & 0xFF) == 0) _F |= 0x80; // Z
+    if (((_A & 0xF) + (r & 0xF)) > 0xF) _F |= 0x20; // H
+    if (result > 0xFF) _F |= 0x10; // C
 
-    if ((_A & 0xF) + (r & 0xF) > 0xF) { // Set H flag
-        _F |= 0x20;
-    }
-
-    if ((int)_A + (int)r > 0xFF) { // Set C flag
-        _F |= 0x10;
-    }
     _A = result & 0xFF;
 }
 
@@ -150,37 +188,23 @@ void CPU::setADCFlags(uint8_t& r) {
     uint8_t carry = (_F & 0x10) ? 1 : 0;
     uint16_t result = _A + r + carry;
 
-    if (result == 0) { // Set Z flag
-        _F |= 0x80;
-    }
-    _F &= ~(0x40); // Clear the N flag
+    _F = 0;
+    if ((result & 0xFF) == 0) _F |= 0x80;
+    if (((_A & 0xF) + (r & 0xF) + carry) > 0xF) _F |= 0x20;
+    if (result > 0xFF) _F |= 0x10;
 
-    if ((_A & 0xF) + (r & 0xF) > 0xF) { // Set H flag
-        _F |= 0x20;
-    }
-
-    if ((int)_A + (int)r > 0xFF) { // Set C flag
-        _F |= 0x10;
-    }
     _A = result & 0xFF;
 }
 
 void CPU::setSUBFlags(uint8_t& r) {
     uint16_t result = _A - r;
 
-    if (result == 0) { // Set Z flag
-        _F |= 0x80;
-    }
+    _F = 0x40; // N = 1
 
-    _F |= 0x40; // Set the N flag since N == subtraction
+    if ((result & 0xFF) == 0) _F |= 0x80;
+    if ((_A & 0xF) < (r & 0xF)) _F |= 0x20;
+    if (_A < r) _F |= 0x10;
 
-    if ((_A & 0xF) < (r & 0xF)) { // Set H flag if we borrow from bit 4
-        _F |= 0x20;
-    }
-
-    if (_A < r) { // Set C flag if we borrow from bit 8
-        _F |= 0x10;
-    }
     _A = result & 0xFF;
 }
 
@@ -188,19 +212,12 @@ void CPU::setSBCFlags(uint8_t& r) {
     uint8_t carry = (_F & 0x10) ? 1 : 0;
     uint16_t result = _A - r - carry;
 
-    if (result == 0) { // Set Z flag
-        _F |= 0x80;
-    }
+    _F = 0x40; // N = 1
 
-    _F |= 0x40; // Set the N flag since N == subtraction
+    if ((result & 0xFF) == 0) _F |= 0x80;
+    if ((_A & 0xF) < ((r & 0xF) + carry)) _F |= 0x20;
+    if (_A < (r + carry)) _F |= 0x10;
 
-    if ((_A & 0xF) < (r & 0xF)) { // Set H flag if we borrow from bit 4
-        _F |= 0x20;
-    }
-
-    if (_A < r) { // Set C flag if we borrow from bit 8
-        _F |= 0x10;
-    }
     _A = result & 0xFF;
 }
 
@@ -242,21 +259,11 @@ void CPU::setORFlags(uint8_t& r) {
 }
 
 void CPU::setCPFlags(uint8_t& r) {
-    uint16_t result = _A - r;
+    _F = 0x40; // N = 1
 
-    if (result == 0) { // Set Z flag
-        _F |= 0x80;
-    }
-
-    _F |= 0x40; // Set the N flag since N == subtraction
-
-    if ((_A & 0xF) < (r & 0xF)) { // Set H flag if we borrow from bit 4
-        _F |= 0x20;
-    }
-
-    if (_A < r) { // Set C flag if we borrow from bit 8
-        _F |= 0x10;
-    }
+    if ((_A - r) == 0) _F |= 0x80;
+    if ((_A & 0xF) < (r & 0xF)) _F |= 0x20;
+    if (_A < r) _F |= 0x10;
 }
 
 void CPU::RLC(uint8_t& r) {
@@ -393,7 +400,7 @@ void CPU::SET(uint8_t& r, int n) {
 }
 
 void CPU::RES(uint8_t& r, int n) {
-    r |= ~(1 << n);
+    r &= ~(1 << n);
 }
 
 bool CPU::interruptPending() {
@@ -567,7 +574,11 @@ void CPU::executeOpcode(uint8_t opcode) {
             setDE(getDE() - 1);
             break;
         case 0x1C: // INC E
+            std::cout << "E before INC: " << std::hex << (int)_E << "\n";
             setINCFlags(_E);
+            std::cout << "E after INC: " << std::hex << (int)_E 
+                    << " F: " << std::hex << (int)_F 
+                    << " Z: " << ((_F & 0x80) ? "1" : "0") << "\n";
             break;
         case 0x1D: // DEC E
             _E -= 1;
@@ -592,12 +603,13 @@ void CPU::executeOpcode(uint8_t opcode) {
             }
             break;}
         case 0x20: // JR NZ, r8
-            {uint8_t z = (_F & 0x80) >> 7;
+            {
             int8_t offset = (int8_t)fetch8();
-            if (!z) {
+            if (!(_F & 0x80)) { // If Z == 0, jump
                 _PC += offset;
             }
-            break;}
+            break;
+        }
         case 0x21: // LD HL, d16
             setHL(fetch16());
             break;
@@ -1204,9 +1216,12 @@ void CPU::executeOpcode(uint8_t opcode) {
                 _PC = pop16();
             }
             break;
-        case 0xC9: // RET
+        case 0xC9: // RET 
+            {
+            uint16_t ret = peek(_SP) | (peek(_SP + 1) << 8);
+            std::cout << "RET to: 0x" << std::hex << ret << " from SP: 0x" << _SP << "\n";
             _PC = pop16();
-            break;
+            break;}
         case 0xCA: // JP Z, a16
             if (!(_F & 0x80)) {
                 _PC = fetch16();
@@ -2026,6 +2041,7 @@ void CPU::executeOpcode(uint8_t opcode) {
             break;}
         case 0xCD: // CALL a16
             {uint16_t addr = fetch16();
+            std::cout << "CALL to: 0x" << std::hex << addr << " from: 0x" << _PC << "\n";
             push16(_PC);
             _PC = addr;
             break;}
@@ -2222,5 +2238,9 @@ void CPU::executeOpcode(uint8_t opcode) {
             _PC = addr;
             break;
         }
+        default:
+            std::cerr << "Unhandled opcode: 0x" << std::hex << (int)opcode << " at PC: 0x" << _PC - 1 << "\n";
+            _halted = true;
+            break;
     }   
 }

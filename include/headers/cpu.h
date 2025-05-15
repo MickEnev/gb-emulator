@@ -98,6 +98,8 @@ class CPU {
         void SET(uint8_t& r, int n);
         void RES(uint8_t& r, int n);
 
+        void serviceInterrupt();
+
 
         
 };

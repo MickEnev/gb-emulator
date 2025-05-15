@@ -17,7 +17,7 @@ std::vector<uint8_t> readROM(const std::string& path) {
 int main(int argc, char* argv[]) {
     
     CPU cpu;
-    std::vector<uint8_t> rom = readROM("ROMS/cpu_instrs.gb");
+    std::vector<uint8_t> rom = readROM("ROMS/01-special.gb");
     cpu.loadROM(rom);
 
  std::cout << "First 16 bytes in memory after loading ROM: ";
@@ -26,7 +26,7 @@ int main(int argc, char* argv[]) {
     }
     std::cout << std::endl;
 
-    for (int i = 0; i < 1000000; ++i) {
+    for (int i = 0; i < 10000000; ++i) {
         cpu.step();
 
         // Optional: break if halted
