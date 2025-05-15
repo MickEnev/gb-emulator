@@ -17,6 +17,8 @@ class Memory {
         // Write data
         void write(uint16_t address, uint8_t value);
         void loadROM(const std::vector<uint8_t>& rom); // Check size of roms and make sure all these values are correct
+
+        std::string serial_log;
     private:
         std::array<uint8_t, SIZE> _mem;
 };

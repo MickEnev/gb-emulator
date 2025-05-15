@@ -14,32 +14,66 @@ std::vector<uint8_t> readROM(const std::string& path) {
     return std::vector<uint8_t>((std::istreambuf_iterator<char>(file)), {});
 }
 
+void dumpROM(const std::vector<uint8_t>& rom) {
+    for (size_t i = 0; i < rom.size(); ++i) {
+        // Print each byte as two‑digit hex
+        std::cout
+            << std::hex 
+            << std::setw(2) 
+            << std::setfill('0')
+            << static_cast<int>(rom[i])
+            << ' ';
+
+        // Optional: break line every 16 bytes
+        if ((i + 1) % 16 == 0) 
+            std::cout << '\n';
+    }
+    std::cout << std::dec << '\n';  // back to decimal
+}
+
+void trimTrailingZeros(std::vector<uint8_t>& rom) {
+    auto it = std::find_if(rom.rbegin(), rom.rend(),
+                           [](uint8_t b){ return b != 0x00; });
+    rom.erase(rom.begin() + (rom.rend() - it), rom.end());
+}
+
+void printMessageFrom(uint16_t startAddr, CPU& cpu) {
+    std::cout << "Message:\n";
+    for (uint16_t addr = startAddr; addr < 0xC100; ++addr) {
+        char c = static_cast<char>(cpu.peek(addr));
+        if (c == '\0') break;
+        if (std::isprint(c) || c == '\n') {
+            std::cout << c;
+        }
+    }
+    std::cout << "\n";
+}
+
 int main(int argc, char* argv[]) {
     
     CPU cpu;
     std::vector<uint8_t> rom = readROM("ROMS/01-special.gb");
+    std::vector<uint8_t> rom2 = readROM("ROMS/cpu_instrs.gb");
+    
+    trimTrailingZeros(rom2);
+    dumpROM(rom2);
+
     cpu.loadROM(rom);
 
- std::cout << "First 16 bytes in memory after loading ROM: ";
-    for (int i = 0; i < 16; ++i) {
-        std::cout << std::hex << (int)cpu.peek(i) << " ";
-    }
-    std::cout << std::endl;
-
-    for (int i = 0; i < 10000000; ++i) {
+    for (int i = 0; i < 300000; ++i) {
         cpu.step();
 
-        // Optional: break if halted
-        if (cpu.isHalted()) break;
+        if (cpu.isHalted() && !cpu.interruptPending()) {
+            std::cout << "CPU halted cleanly with no interrupts.\n";
+            break;
+        }
     }
+    
 
-    // Dump region of memory where result message is written
-    std::cout << "Output:\n";
-    for (uint16_t addr = 0xC000; addr < 0xC100; ++addr) {
-        char c = static_cast<char>(cpu.peek(addr));
-        if (std::isprint(c)) std::cout << c;
-    }
-    std::cout << "\n";
+    printMessageFrom(0xC000, cpu);
+    printMessageFrom(0xC080, cpu);
+    printMessageFrom(0xC0A0, cpu);
+
 
 
     return 0;
