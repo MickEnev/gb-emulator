@@ -88,11 +88,10 @@ void CPU::step() {
     uint16_t oldPC = _PC;
     uint8_t opcode = fetch8();
 
-    std::cout << "Executing opcode: " << std::hex << (int)opcode << " at PC: " << oldPC << std::endl;
-
+    //std::cout << "Executing opcode: " << std::hex << (int)opcode << " at PC: " << oldPC << std::endl;
     executeOpcode(opcode);
 
-    std::cout << "After executing opcode: " << std::hex << (int)opcode << " PC: " << _PC << std::endl;
+    //std::cout << "After executing opcode: " << std::hex << (int)opcode << " PC: " << _PC << std::endl;
 
     // Enable interrupts if EI was just executed
     if (_imeScheduled) {
@@ -574,11 +573,11 @@ void CPU::executeOpcode(uint8_t opcode) {
             setDE(getDE() - 1);
             break;
         case 0x1C: // INC E
-            std::cout << "E before INC: " << std::hex << (int)_E << "\n";
+            //std::cout << "E before INC: " << std::hex << (int)_E << "\n";
             setINCFlags(_E);
-            std::cout << "E after INC: " << std::hex << (int)_E 
+            /*std::cout << "E after INC: " << std::hex << (int)_E 
                     << " F: " << std::hex << (int)_F 
-                    << " Z: " << ((_F & 0x80) ? "1" : "0") << "\n";
+                    << " Z: " << ((_F & 0x80) ? "1" : "0") << "\n";*/
             break;
         case 0x1D: // DEC E
             _E -= 1;
@@ -731,9 +730,11 @@ void CPU::executeOpcode(uint8_t opcode) {
             _mem.write(getHL(), val);
             break;}
         case 0x36: // LD (HL), d8 COULD BE SOURCE OF ERROR
-            {uint8_t addr = _mem.read(getHL());
-            _mem.write(addr, fetch8());
-            break;}
+            {
+            uint8_t val = fetch8();
+            _mem.write(getHL(), val);
+            break;
+        }
         case 0x37: // SCF
             _F &= 0x10;
             break;
@@ -922,22 +923,22 @@ void CPU::executeOpcode(uint8_t opcode) {
             _L = _A;
             break;
         case 0x70: // LD (HL), B
-            _mem.write(_mem.read(getHL()), _B);
+            _mem.write(getHL(), _B);
             break;
         case 0x71: // LD (HL), C
-            _mem.write(_mem.read(getHL()), _C);
+            _mem.write(getHL(), _C);
             break;
         case 0x72: // LD (HL), D
-            _mem.write(_mem.read(getHL()), _D);
+            _mem.write(getHL(), _D);
             break;
         case 0x73: // LD (HL), E
-            _mem.write(_mem.read(getHL()), _E);
+            _mem.write(getHL(), _E);
             break;
         case 0x74: // LD (HL), H
-            _mem.write(_mem.read(getHL()), _H);
+            _mem.write(getHL(), _H);
             break;
         case 0x75: // LD (HL), L
-            _mem.write(_mem.read(getHL()), _L);
+            _mem.write(getHL(), _L);
             break;
         case 0x76: // HALT
             // TODO: Figure out what IME flag is and how it works then implement this
@@ -949,7 +950,7 @@ void CPU::executeOpcode(uint8_t opcode) {
             }
     break;
         case 0x77: // LD (HL), A
-            _mem.write(_mem.read(getHL()), _A);
+            _mem.write(getHL(), _A);
             break;
         case 0x78: // LD A, B
             _A = _B;

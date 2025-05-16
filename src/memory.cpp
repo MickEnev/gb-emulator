@@ -17,6 +17,10 @@ void Memory::write(uint16_t address, uint8_t value) {
         return;
     }
 
+    if (address >= 0xC000 && address < 0xC080) {
+        std::cout << "RAM[0x" << std::hex << address << "] = " << (char)value << "\n";
+    }
+
     _mem[address] = value;
 
     if (address == 0xFF02 && (value & 0x81) == 0x81) {
@@ -24,8 +28,6 @@ void Memory::write(uint16_t address, uint8_t value) {
         std::cout << c << std::flush;
         _mem[0xFF02] = 0; // Reset transfer control
     }
-
-    
 
     
 }   
