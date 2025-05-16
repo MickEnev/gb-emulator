@@ -41,9 +41,6 @@ void Memory::write(uint16_t address, uint8_t value) {
 
     if (address == 0xFF02 && (value & 0x81) == 0x81) {
         char c = _mem[0xFF01];
-        if (c == 'f') {
-            stop = true;
-        }
         std::cout << c << std::flush;
         _mem[0xFF02] = 0; // Reset transfer control
     }

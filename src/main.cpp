@@ -52,7 +52,7 @@ void printMessageFrom(uint16_t startAddr, CPU& cpu) {
 int main(int argc, char* argv[]) {
     
     CPU cpu;
-    std::vector<uint8_t> rom = readROM("ROMS/cpu_instrs.gb");
+    std::vector<uint8_t> rom = readROM("ROMS/01-special.gb");
     std::vector<uint8_t> rom2 = readROM("ROMS/cpu_instrs.gb");
     
     trimTrailingZeros(rom2);
