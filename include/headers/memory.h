@@ -19,6 +19,11 @@ class Memory {
         void loadROM(const std::vector<uint8_t>& rom); // Check size of roms and make sure all these values are correct
 
         std::string serial_log;
+
+        bool stop;
+
+        bool ram_enabled = false;
+        std::array<uint8_t, 0x2000> ext_ram;
     private:
         std::array<uint8_t, SIZE> _mem;
 };

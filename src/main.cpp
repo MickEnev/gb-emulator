@@ -52,7 +52,7 @@ void printMessageFrom(uint16_t startAddr, CPU& cpu) {
 int main(int argc, char* argv[]) {
     
     CPU cpu;
-    std::vector<uint8_t> rom = readROM("ROMS/01-special.gb");
+    std::vector<uint8_t> rom = readROM("ROMS/cpu_instrs.gb");
     std::vector<uint8_t> rom2 = readROM("ROMS/cpu_instrs.gb");
     
     trimTrailingZeros(rom2);
@@ -60,7 +60,12 @@ int main(int argc, char* argv[]) {
 
     cpu.loadROM(rom);
 
-    for (int i = 0; i < 300000; ++i) {
+    for (int i = 0; i < 2215000; ++i) {
+        if (cpu.stop()) {
+            std::cout << "lajskhdahs" << std::endl;
+            std::cerr << "\n[DEBUG] Serial output started with 'f' — test failed\n";
+            break;
+        }
         cpu.step();
 
         if (cpu.isHalted() && !cpu.interruptPending()) {
@@ -69,10 +74,6 @@ int main(int argc, char* argv[]) {
         }
     }
     
-
-    printMessageFrom(0xC000, cpu);
-    printMessageFrom(0xC080, cpu);
-    printMessageFrom(0xC0A0, cpu);
 
 
 

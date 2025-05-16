@@ -53,6 +53,13 @@ uint16_t CPU::getHL() const {
 void CPU::setHL(uint16_t val) {
     _H = (val >> 8) & 0xFF;
     _L = val & 0xFF;
+    /*if (getHL() < 0x8000) {
+        std::cout << "⚠️  HL set to ROM address: 0x" << std::hex << getHL() 
+                  << " at PC: 0x" << _PC << "\n";
+    }
+    if (getHL() < 0x8000) {
+        std::cerr << "❗ HL set to ROM area: 0x" << std::hex << getHL() << " from POP HL at PC: 0x" << _PC << "\n";
+    }*/
 }
 
 uint16_t CPU::getPC() const {
@@ -69,6 +76,10 @@ uint16_t CPU::getSP() const {
 
 void CPU::setSP(uint16_t val) {
     _SP = val;
+}
+
+bool CPU::stop() {
+    return _mem.stop;
 }
 
 void CPU::step() {
@@ -89,11 +100,15 @@ void CPU::step() {
     uint16_t oldPC = _PC;
     uint8_t opcode = fetch8();
 
-    printf("PC: %04X  OPCODE: %02X\n", oldPC, opcode);
+    //printf("PC: %04X  OPCODE: %02X\n", oldPC, opcode);
 
     //std::cout << "Executing opcode: " << std::hex << (int)opcode << " at PC: " << oldPC << std::endl;
     //std::cout << std::hex << (int)opcode << std::endl;
     executeOpcode(opcode);
+    if (_mem.stop) {
+        _halted = true;
+        return;
+    }
 
     //std::cout << "After executing opcode: " << std::hex << (int)opcode << " PC: " << _PC << std::endl;
 
@@ -532,7 +547,7 @@ void CPU::executeOpcode(uint8_t opcode) {
             _mem.write(getDE(), _A);
             break;
         case 0x13: // INC DE
-            std::cout << "entered 13" << std::endl;
+
             setDE(getDE() + 1);
             break;
         case 0x14: // INC D
@@ -588,7 +603,7 @@ void CPU::executeOpcode(uint8_t opcode) {
         case 0x1C: // INC E
             //std::cout << "E before INC: " << std::hex << (int)_E << "\n";
             setINCFlags(_E);
-            printf(">> INC E: E=%02X F=%02X\n", _E, _F);
+            //printf(">> INC E: E=%02X F=%02X\n", _E, _F);
             /*std::cout << "E after INC: " << std::hex << (int)_E 
                     << " F: " << std::hex << (int)_F 
                     << " Z: " << ((_F & 0x80) ? "1" : "0") << "\n";*/
@@ -726,11 +741,11 @@ void CPU::executeOpcode(uint8_t opcode) {
             break;}
         case 0x31: // LD SP, d16
             setSP(fetch16());
-            std::cout << "LD SP to: 0x" << std::hex << _SP << " at PC: 0x" << _PC << "\n";
+            //std::cout << "LD SP to: 0x" << std::hex << _SP << " at PC: 0x" << _PC << "\n";
             break;
         case 0x32: // LD (HL-), A
-            setHL(_A);
-            setHL(getHL() - 1);
+            _mem.write(getHL(), _A);     // write A to address HL
+            setHL(getHL() - 1);          // then decrement HL
             break;
         case 0x33: // INC SP
             setSP(getSP() + 1);
@@ -746,9 +761,10 @@ void CPU::executeOpcode(uint8_t opcode) {
             _mem.write(getHL(), val);
             break;}
         case 0x36: // LD (HL), d8 COULD BE SOURCE OF ERROR
-            {uint8_t addr = _mem.read(getHL());
-            _mem.write(addr, fetch8());
-            break;}
+            {
+            _mem.write(getHL(), fetch8());
+            break;
+            }
         case 0x37: // SCF
             _F &= 0x10;
             break;
@@ -775,7 +791,8 @@ void CPU::executeOpcode(uint8_t opcode) {
             setHL(result);
             break;}
         case 0x3A: // LD A, (HL-)
-            _A = _mem.read(getHL() - 1);
+            _A = _mem.read(getHL());     // read from HL
+            setHL(getHL() - 1);          // then decrement HL
             break;
         case 0x3B: // DEC SP
             setSP(getSP() - 1);
@@ -943,6 +960,7 @@ void CPU::executeOpcode(uint8_t opcode) {
             _mem.write(getHL(), _C);
             break;
         case 0x72: // LD (HL), D
+            //std::cout << "LD (HL), D -- HL = 0x" << std::hex << getHL() << "\n";
             _mem.write(getHL(), _D);
             break;
         case 0x73: // LD (HL), E
@@ -962,9 +980,9 @@ void CPU::executeOpcode(uint8_t opcode) {
             } else {
         _halted = true;
             }
-    break;
+        break;
         case 0x77: // LD (HL), A
-            _mem.write(_mem.read(getHL()), _A);
+            _mem.write(getHL(), _A);
             break;
         case 0x78: // LD A, B
             _A = _B;
@@ -1206,7 +1224,7 @@ void CPU::executeOpcode(uint8_t opcode) {
             break;}
         case 0xC3: // JP a16
             _PC = fetch16();
-            printf("JP to %04X\n", _PC);
+            //printf("JP to %04X\n", _PC);
             break;
         case 0XC4: // CALL NZ, a16
             {uint16_t addr = fetch16();
@@ -1235,7 +1253,7 @@ void CPU::executeOpcode(uint8_t opcode) {
         case 0xC9: // RET 
             {
             uint16_t ret_addr = pop16();
-            std::cout << "RET to: 0x" << std::hex << ret_addr << " from SP: 0x" << _SP << "\n";
+            //std::cout << "RET to: 0x" << std::hex << ret_addr << " from SP: 0x" << _SP << "\n";
             _PC = ret_addr;
             break;}
         case 0xCA: // JP Z, a16
@@ -2058,7 +2076,7 @@ void CPU::executeOpcode(uint8_t opcode) {
         case 0xCD: // CALL a16
             {uint16_t ret_addr = _PC + 2;  
                 uint16_t addr = fetch16();    
-                std::cout << "CALL to: 0x" << std::hex << addr << " from: 0x" << _PC - 2 << "\n";
+                //std::cout << "CALL to: 0x" << std::hex << addr << " from: 0x" << _PC - 2 << "\n";
                 push16(ret_addr);          
                 _PC = addr;    
                 break;}
@@ -2112,7 +2130,7 @@ void CPU::executeOpcode(uint8_t opcode) {
         case 0xD9: // RETI
             {
             uint16_t ret_addr = pop16();
-            std::cout << "RETI to: 0x" << std::hex << ret_addr << " from SP: 0x" << _SP << "\n";
+            //std::cout << "RETI to: 0x" << std::hex << ret_addr << " from SP: 0x" << _SP << "\n";
             _PC = ret_addr;
             _IME = true; // enable interrupts
             break;

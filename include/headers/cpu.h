@@ -39,6 +39,10 @@ class CPU {
 
         std::string getLog();
 
+        bool stop();
+
+        // FOR TESTING
+
 
     private:
         Memory _mem;
