@@ -35,6 +35,13 @@ class CPU {
 
         uint8_t peek(uint16_t addr) const;
         bool isHalted() const;
+        bool interruptPending();
+
+        std::string getLog();
+
+        bool stop();
+
+        // FOR TESTING
 
 
     private:
@@ -55,8 +62,6 @@ class CPU {
 
         bool _stopped = false;
         bool _halted = false;
-
-        bool interruptPending();
 
         void executeOpcode(uint8_t opcode);
 
